@@ -271,33 +271,74 @@ def check_walmart(cfg):
     for url in cfg.get("urls", []):
         try:
             r = fetch(url)
+
+            if r.status_code in (403, 429, 503):
+                results.append(result("Walmart", url, UNKNOWN, url,
+                                      f"bloqueado (HTTP {r.status_code})"))
+                continue
+
+            if r.status_code >= 400:
+                results.append(result("Walmart", url, UNKNOWN, url,
+                                      f"HTTP {r.status_code}"))
+                continue
+
             if page_is_open_box(r.text, getattr(r, "url", url)):
                 results.append(result("Walmart", url, OUT_OF_STOCK, url,
                                       "ignorado: oferta Open Box"))
                 continue
-            m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text, re.S)
+
+            m = re.search(
+                r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>',
+                r.text, re.S
+            )
+
             if r.status_code == 200 and m:
                 data = json.loads(m.group(1))
                 prod = ((((data.get("props") or {}).get("pageProps") or {})
                          .get("initialData") or {}).get("data") or {}).get("product") or {}
+
                 status_raw = (prod.get("availabilityStatus") or "").upper()
                 name = prod.get("name") or url
                 price = ((prod.get("priceInfo") or {}).get("currentPrice") or {}).get("priceString", "")
+
+                seller = (
+                    prod.get("sellerDisplayName")
+                    or prod.get("sellerName")
+                    or ""
+                ).strip()
+
                 if is_open_box(name):
                     results.append(result("Walmart", name, OUT_OF_STOCK, url,
                                           "ignorado: oferta Open Box"))
                     continue
+
+                if not seller:
+                    results.append(result("Walmart", name, UNKNOWN, url,
+                                          "vendedor no identificado"))
+                    continue
+
+                if seller.casefold() != "walmart.com":
+                    results.append(result("Walmart", name, UNKNOWN, url,
+                                          f"ignorado: vendido por tercero ({seller})"))
+                    continue
+
                 if status_raw:
                     status = IN_STOCK if status_raw == "IN_STOCK" else OUT_OF_STOCK
-                    detail = f"availabilityStatus={status_raw}" + (f", {price}" if price else "")
+                    detail = f"Vendido por {seller}; availabilityStatus={status_raw}"
+                    if price:
+                        detail += f", {price}"
+
                     results.append(result("Walmart", name, status, url, detail))
                     continue
-            # sin JSON utilizable: caigo a la deteccion generica
-            results.append(check_one_html("Walmart", url, cfg.get("out_extra", [])))
-        except Exception as e:  # noqa: BLE001
-            results.append(result("Walmart", url, UNKNOWN, url, f"error: {str(e)[:120]}"))
-    return results
 
+            results.append(result("Walmart", url, UNKNOWN, url,
+                                  "no se pudo confirmar disponibilidad y vendedor"))
+
+        except Exception as e:
+            results.append(result("Walmart", url, UNKNOWN, url,
+                                  f"error: {str(e)[:120]}"))
+
+    return results
 
 # ---------------- Newegg: API interna ProductRealtime ----------------
 def check_newegg(cfg):
