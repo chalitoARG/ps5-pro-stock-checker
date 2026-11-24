@@ -146,7 +146,7 @@ PRODUCT_PATTERNS = ["ps5 pro", "playstation 5 pro", "playstation5 pro", "playsta
 OUT_PATTERNS = [
     "sold out", "out of stock", "currently unavailable",
     "temporarily out of stock", "coming soon", "notify me when",
-    "out-of-stock", "soldout", "get notified",
+    "out-of-stock", "soldout", "get notified", "no longer available",
 ]
 IN_PATTERNS = [
     "add to cart", "add to bag", "addtocart", "add-to-cart", "buy now",
@@ -250,7 +250,14 @@ def check_one_html(name, url, out_extra=()):
         out_hit = next((p for p in list(out_extra) + OUT_PATTERNS if p in body), None)
         if out_hit:
             return result(name, url, OUT_OF_STOCK, url, f"detecto '{out_hit}'")
-        in_hit = next((p for p in IN_PATTERNS if p in body), None)
+        # "Add to cart" por si solo no confirma stock:
+# algunas paginas lo incluyen aunque el producto este agotado.
+in_hit = next((p for p in IN_PATTERNS if p in body), None)
+
+if name == "Abt":
+    return result(name, url, UNKNOWN, url,
+                  f"senal de compra no concluyente: '{in_hit}'" if in_hit
+                  else "sin senales claras")
         if in_hit:
             return result(name, url, IN_STOCK, url, f"detecto '{in_hit}'")
         return result(name, url, UNKNOWN, url, "sin senales claras")
