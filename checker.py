@@ -251,18 +251,18 @@ def check_one_html(name, url, out_extra=()):
         if out_hit:
             return result(name, url, OUT_OF_STOCK, url, f"detecto '{out_hit}'")
         # "Add to cart" por si solo no confirma stock:
-# algunas paginas lo incluyen aunque el producto este agotado.
-in_hit = next((p for p in IN_PATTERNS if p in body), None)
+        # algunas paginas lo incluyen aunque el producto este agotado.
+               # "Add to cart" por si solo no confirma stock:
+        # algunas paginas lo incluyen aunque el producto este agotado.
+        in_hit = next((p for p in IN_PATTERNS if p in body), None)
 
-if name == "Abt":
-    return result(name, url, UNKNOWN, url,
-                  f"senal de compra no concluyente: '{in_hit}'" if in_hit
-                  else "sin senales claras")
+        if name == "Abt":
+            return result(name, url, UNKNOWN, url,
+                          f"senal de compra no concluyente: '{in_hit}'" if in_hit
+                          else "sin senales claras")
+
         if in_hit:
             return result(name, url, IN_STOCK, url, f"detecto '{in_hit}'")
-        return result(name, url, UNKNOWN, url, "sin senales claras")
-    except Exception as e:  # noqa: BLE001
-        return result(name, url, UNKNOWN, url, f"error: {str(e)[:120]}")
 
 
 def make_html_checker(display_name):
